@@ -1,101 +1,112 @@
-import Image from "next/image";
+'use client'
+
+import { useState } from 'react'
+import Notification from '@/components/notification'
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [userEmail, setUserEmail] = useState('')
+  const [pin, setPin] = useState('')
+  const [isRedirecting, setIsRedirecting] = useState(false)
+  const [notification, setNotification] = useState<{
+    message: string
+    type: 'success' | 'error'
+  } | null>(null)
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const handleAuth = () => {
+    setIsRedirecting(true)
+    fetch('/api/twitter/authenticate')
+      .then((res) => res.json())
+      .then((data) => {
+        // Redirect user to Twitter's authorization URL
+        setIsRedirecting(true)
+        window.location.href = data.url
+      })
+      .catch((err) => {
+        console.log("error", err) // log the error
+        setNotification({
+          message: 'Error initiating authentication',
+          type: 'error',
+        }) // Notify
+        setIsRedirecting(false) // Reset the state if there's an error
+      })
+  }
+
+  const handleSubmitPin = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+
+    // Send PIN and userEmail to the backend
+    fetch('/api/twitter/access_token', {
+      method: 'POST',
+      body: JSON.stringify({ pin, userEmail }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setNotification({
+          message: 'Successfully authenticated and tokens stored in S3',
+          type: 'success',
+        })
+      })
+      .catch((err) => {
+        setNotification({
+          message: 'Error during access token exchange',
+          type: 'error',
+        })
+      })
+  }
+
+  return (
+    <div className='min-h-screen flex items-center justify-center bg-gray-100'>
+      <div className='bg-white p-8 rounded-lg shadow-md w-full max-w-md'>
+        <h1 className='text-2xl font-bold mb-6 text-center'>METAL HEAD</h1>
+
+        <div className='mb-4'>
+          <input
+            type='email'
+            placeholder='Enter your email'
+            value={userEmail}
+            onChange={(e) => setUserEmail(e.target.value)}
+            className='w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white'
+            disabled={isRedirecting}
+          />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+
+        <button
+          type='button'
+          onClick={handleAuth}
+          className={`w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition duration-300 ${
+            isRedirecting ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
+          disabled={isRedirecting}
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          Authenticate with Twitter
+        </button>
+
+        <form onSubmit={handleSubmitPin} className='mt-6'>
+          <div className='mb-4'>
+            <input
+              type='text'
+              placeholder='Enter PIN'
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              className='w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white'
+            />
+          </div>
+          <button
+            type='submit'
+            className='w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition duration-300'
+          >
+            Submit PIN
+          </button>
+        </form>
+      </div>
+      {notification && (
+        <Notification
+          message={notification.message}
+          type={notification.type}
+          onClose={() => setNotification(null)}
+        />
+      )}
     </div>
-  );
+  )
 }
