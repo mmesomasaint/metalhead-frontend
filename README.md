@@ -2,7 +2,7 @@
 
 This is a web bot frontend handler that creates a bot that helps users automate certain tasks in a website. Observe the logs and upload images for the bot to operate with.
 
-For security reasons other actions performed by this web bot would not be disclosed at this time.
+*For security reasons other actions performed by this web bot would not be disclosed at this time.*
 
 ## Web Stacks
 
