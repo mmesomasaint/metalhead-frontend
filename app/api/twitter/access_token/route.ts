@@ -1,7 +1,6 @@
 import { OAuth } from 'oauth'
 import AWS from 'aws-sdk'
-import { withIronSession } from 'next-iron-session'
-import { NextApiRequest, NextApiResponse } from 'next'
+import { NextRequest, NextResponse } from 'next/server'
 
 // Initialize the AWS S3 client
 const s3 = new AWS.S3()
@@ -28,29 +27,29 @@ async function uploadTokensToS3(
   console.log('Tokens successfully uploaded to S3')
 }
 
-async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-): Promise<void> {
-  const { pin, userEmail } = req.body // Get the PIN and user email from the request body
-  const { oauthToken, oauthTokenSecret } = req.session.get('oauthToken') // Get the oauthToken and oauthTokenSecret from the session
+export default async function POST(
+  req: NextRequest
+) {
+  const { pin, userEmail } = await req.json() // Get the PIN and user email from the request body
+  const authCookie = req.cookies.get('oauthToken') // Get the oauthToken and oauthTokenSecret from the session
   const consumerKey = process.env.TWITTER_CONSUMER_KEY
   const consumerSecret = process.env.TWITTER_CONSUMER_SECRET
   const callbackUrl = process.env.TWITTER_CALLBACK_URL
 
   if (!pin || !userEmail) {
-    return res.status(400).json({ error: 'PIN and userEmail are required' })
-  }
-
-  if (!oauthToken || !oauthTokenSecret) {
-    return res.status(500).json({ error: 'OAuth tokens not found in session' })
+    return NextResponse.json({ error: 'PIN and userEmail are required', status: 500 })
   }
 
   if (!consumerKey || !consumerSecret || !callbackUrl) {
-    return res
-      .status(500)
-      .json({ error: 'Twitter environment variables not set' })
+    return NextResponse
+      .json({ error: 'Twitter environment variables not set', status: 500 })
   }
+
+  if (!authCookie) {
+    return NextResponse.json({ error: "OAuth tokens not found in session."})
+  }
+
+  const { oauthToken, oauthTokenSecret } = JSON.parse(authCookie.value)
 
   const oauth = new OAuth(
     'https://api.twitter.com/oauth/request_token',
@@ -74,28 +73,18 @@ async function handler(
       results: any
     ) {
       if (error) {
-        return res
-          .status(500)
-          .json({ error: 'Failed to exchange PIN for access token' })
+        return NextResponse
+          .json({ error: 'Failed to exchange PIN for access token', status: 200 })
       }
 
       // Save the access token and secret to S3
       try {
         // Store tokens in S3 using the user's email (this will be a unique path for each user)
         await uploadTokensToS3(userEmail, accessToken, accessTokenSecret)
-        res.status(200).json({ message: 'Tokens successfully uploaded to S3' })
+        return NextResponse.json({ message: 'Tokens successfully uploaded to S3', status: 200 })
       } catch (err) {
-        res.status(500).json({ error: 'Error uploading tokens to S3' })
+        return NextResponse.json({ error: 'Error uploading tokens to S3', status: 200 })
       }
     }
   )
 }
-
-// Wrap the handler with the session middleware
-export default withIronSession(handler, {
-  password: process.env.SECRET_COOKIE_PASSWORD || 'default-password', // A strong password for encrypting the cookies
-  cookieName: 'metal-head-session',
-  cookieOptions: {
-    secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
-  },
-})

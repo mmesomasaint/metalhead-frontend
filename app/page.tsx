@@ -18,8 +18,8 @@ export default function Home() {
       .then((res) => res.json())
       .then((data) => {
         // Redirect user to Twitter's authorization URL
-        setIsRedirecting(true)
-        window.location.href = data.url
+        console.log('data: ', data)
+        // window.location.href = data.url
       })
       .catch((err) => {
         console.log("error", err) // log the error
