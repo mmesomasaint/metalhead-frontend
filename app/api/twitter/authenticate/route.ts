@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     const cookieOptions = {
       httpOnly: true, // Prevent JavaScript from accessing the cookie
       secure: process.env.NODE_ENV === 'production', // Set secure flag in production
-      sameSite: 'lax' as 'lax', // Set cookie SameSite policy
+      sameSite: 'lax' as const, // Set cookie SameSite policy
     }
 
     // Store codeVerifier and state in cookies
