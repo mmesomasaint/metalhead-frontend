@@ -31,7 +31,7 @@ async function uploadTokensToS3(
   console.log('Tokens successfully uploaded to S3')
 }
 
-export async function POST(req: NextRequest) {
+export async function GET(req: NextRequest) {
   const searchParms = req.nextUrl.searchParams
   const code = searchParms.get('code')
   const state = searchParms.get('state')
