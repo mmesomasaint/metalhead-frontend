@@ -13,7 +13,13 @@ export default function AuthForm() {
 
   const handleAuth = () => {
     setIsRedirecting(true)
-    fetch('/api/twitter/authenticate')
+    fetch('/api/twitter/authenticate', {
+      method: 'POST',
+      body: JSON.stringify({ userEmail }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
       .then((res) => res.json())
       .then((data) => {
         // Redirect user to Twitter's authorization URL
