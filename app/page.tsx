@@ -3,11 +3,11 @@ import {cookies} from 'next/headers'
 
 export default async function Home() {
   const cookieStore = await cookies()
-  const code = cookieStore.get('x-code')
+  const token = cookieStore.get('access_token')
 
-  // Move to next auth step if code is present
-  if (code) {
-    console.log('code: ', code)
+  // Move to next auth step if token is present
+  if (token) {
+    console.log('token: ', token)
   }
 
   return (

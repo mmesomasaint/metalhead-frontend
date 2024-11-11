@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
     )
 
     // Create the response and set the access token in a secure, HttpOnly cookie
-    const response = NextResponse.json({ message: 'Authentication successful' })
+    const response = NextResponse.redirect('/')
 
     response.cookies.set('access_token', accessToken, {
       httpOnly: true,
