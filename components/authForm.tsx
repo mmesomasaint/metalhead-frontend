@@ -24,7 +24,7 @@ export default function AuthForm() {
       .then((data) => {
         // Redirect user to Twitter's authorization URL
         console.log('data: ', data)
-        // window.location.href = data.url
+        window.location.href = data.url
       })
       .catch((err) => {
         console.log('error', err) // log the error

@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create the response and set cookies with the necessary OAuth2 data
-    const response = NextResponse.redirect(url)
+    const response = NextResponse.json({url})
 
     // Set cookie options to create session.
     const cookieOptions = {
