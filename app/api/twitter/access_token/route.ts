@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
   try {
     // Step 2: Exchange the oauth_token, oauth_token_secret, and oauth_verifier for the access token
     const {
-      client: loggedClient,
+      client,
       accessToken,
       accessSecret,
     } = await twitterClient.login(oauth_verifier)
@@ -88,11 +88,18 @@ export async function POST(req: NextRequest) {
     // Save the access token and secret to S3
     await uploadTokensToS3(userEmail, accessToken, accessSecret)
 
-    return NextResponse.json({
-      body: loggedClient,
-      message: 'App granted access',
-      status: 200,
+    // Create the response object to set the cookie
+    const response = NextResponse.redirect('/')
+
+    // Set the 'x-code' in the cookie
+    response.cookies.set('x-code', accessToken, {
+      httpOnly: true, // Prevent access to the cookie via JavaScript
+      secure: process.env.NODE_ENV === 'production', // Secure flag in production
+      sameSite: 'lax', // Same-site policy
+      maxAge: 60 * 60 * 24, // Cookie expires in 1 day (or customize as needed)
     })
+
+    return response
   } catch (error) {
     console.error('Error during OAuth exchange or S3 upload:', error)
     return NextResponse.json({
