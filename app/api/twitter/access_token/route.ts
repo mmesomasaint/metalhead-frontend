@@ -8,6 +8,7 @@ const s3 = new AWS.S3()
 // This function uploads the tokens to S3
 async function uploadTokensToS3(
   userEmail: string,
+  client: TwitterApi,
   accessToken: string,
   accessTokenSecret: string
 ): Promise<void> {
@@ -15,6 +16,7 @@ async function uploadTokensToS3(
     Bucket: 'zealore', // Your S3 bucket name
     Key: `${userEmail}/twitter/tokens.json`, // The S3 object key
     Body: JSON.stringify({
+      USER: client,
       ACCESS_TOKEN: accessToken,
       ACCESS_TOKEN_SECRET: accessTokenSecret,
     }),
@@ -80,13 +82,13 @@ export async function POST(req: NextRequest) {
   try {
     // Step 2: Exchange the oauth_token, oauth_token_secret, and oauth_verifier for the access token
     const {
-      client,
+      client: user,
       accessToken,
       accessSecret,
     } = await twitterClient.login(oauth_verifier)
 
     // Save the access token and secret to S3
-    await uploadTokensToS3(userEmail, accessToken, accessSecret)
+    await uploadTokensToS3(userEmail, user, accessToken, accessSecret)
 
     // Create the response object to set the cookie
     const response = NextResponse.redirect('/')
