@@ -1,4 +1,4 @@
-import { OAuth } from 'oauth'
+import { TwitterApi } from 'twitter-api-v2'
 import AWS from 'aws-sdk'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -27,64 +27,77 @@ async function uploadTokensToS3(
   console.log('Tokens successfully uploaded to S3')
 }
 
-export default async function POST(
-  req: NextRequest
-) {
-  const { pin, userEmail } = await req.json() // Get the PIN and user email from the request body
-  const authCookie = req.cookies.get('oauthToken') // Get the oauthToken and oauthTokenSecret from the session
+export default async function POST(req: NextRequest) {
+  // Extract tokens from query string
+  const searchParams = req.nextUrl.searchParams
+  const oauth_verifier = searchParams.get('oauth_verifier')
+  const oauthToken = searchParams.get('oauth_token')
+
+  // Get the userEmail, oauthToken and oauthTokenSecret from the session
+  const authCookie = req.cookies.get('oauthToken')
+
+  // Get env varaibles.
   const consumerKey = process.env.TWITTER_CONSUMER_KEY
   const consumerSecret = process.env.TWITTER_CONSUMER_SECRET
   const callbackUrl = process.env.TWITTER_CALLBACK_URL
 
-  if (!pin || !userEmail) {
-    return NextResponse.json({ error: 'PIN and userEmail are required', status: 500 })
+  if (!oauthToken || !oauth_verifier) {
+    return NextResponse.json({
+      error: 'You denied the app or your session expired!',
+      status: 500,
+    })
   }
 
   if (!consumerKey || !consumerSecret || !callbackUrl) {
-    return NextResponse
-      .json({ error: 'Twitter environment variables not set', status: 500 })
+    return NextResponse.json({
+      error: 'Twitter environment variables not set',
+      status: 500,
+    })
   }
 
   if (!authCookie) {
-    return NextResponse.json({ error: "OAuth tokens not found in session."})
+    return NextResponse.json({ error: 'OAuth tokens not found in session.' })
   }
 
-  const { oauthToken, oauthTokenSecret } = JSON.parse(authCookie.value)
+  // Get the user details from session.
+  const { userEmail, oauthTokenSecret } = JSON.parse(authCookie.value)
 
-  const oauth = new OAuth(
-    'https://api.twitter.com/oauth/request_token',
-    'https://api.twitter.com/oauth/access_token',
-    consumerKey,
-    consumerSecret,
-    '1.0A',
-    callbackUrl,
-    'HMAC-SHA1'
-  )
+  if (!userEmail) {
+    return NextResponse.json({
+      error: 'PIN and userEmail are required',
+      status: 400,
+    })
+  }
 
-  // Step 2: Exchange the PIN for an access token
-  oauth.getOAuthAccessToken(
-    oauthToken,
-    oauthTokenSecret,
-    pin, // This is the PIN the user provided
-    async function (
-      error: any,
-      accessToken: string,
-      accessTokenSecret: string,
-      results: any
-    ) {
-      if (error) {
-        return NextResponse
-          .json({ error: 'Failed to exchange PIN for access token', status: 200 })
-      }
+  // Create a new Twitter API client
+  const twitterClient = new TwitterApi({
+    appKey: consumerKey,
+    appSecret: consumerSecret,
+    accessToken: oauthToken,
+    accessSecret: oauthTokenSecret,
+  })
 
-      // Save the access token and secret to S3
-      try {
-        // Store tokens in S3 using the user's email (this will be a unique path for each user)
-        await uploadTokensToS3(userEmail, accessToken, accessTokenSecret)
-        return NextResponse.json({ message: 'Tokens successfully uploaded to S3', status: 200 })
-      } catch (err) {
-        return NextResponse.json({ error: 'Error uploading tokens to S3', status: 200 })
-      }
-    }
-  )
+  try {
+    // Step 2: Exchange the oauth_token, oauth_token_secret, and oauth_verifier for the access token
+    const {
+      client: loggedClient,
+      accessToken,
+      accessSecret,
+    } = await twitterClient.login(oauth_verifier)
+
+    // Save the access token and secret to S3
+    await uploadTokensToS3(userEmail, accessToken, accessSecret)
+
+    return NextResponse.json({
+      body: loggedClient,
+      message: 'App granted access',
+      status: 200,
+    })
+  } catch (error) {
+    console.error('Error during OAuth exchange or S3 upload:', error)
+    return NextResponse.json({
+      error: 'Failed to exchange PIN for access token or upload tokens to S3',
+      status: 500,
+    })
+  }
 }

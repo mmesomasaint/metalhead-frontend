@@ -16,7 +16,8 @@
     "oauth": "^0.10.0",
     "oauth-1.0a": "^2.2.6",
     "react": "19.0.0-rc-02c0e824-20241028",
-    "react-dom": "19.0.0-rc-02c0e824-20241028"
+    "react-dom": "19.0.0-rc-02c0e824-20241028",
+    "twitter-api-v2": "^1.18.2"
   },
   "devDependencies": {
     "@types/node": "^20",

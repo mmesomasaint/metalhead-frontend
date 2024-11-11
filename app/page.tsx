@@ -41,13 +41,13 @@ export default function Home() {
       headers: { 'Content-Type': 'application/json' },
     })
       .then((res) => res.json())
-      .then((data) => {
+      .then(() => {
         setNotification({
           message: 'Successfully authenticated and tokens stored in S3',
           type: 'success',
         })
       })
-      .catch((err) => {
+      .catch(() => {
         setNotification({
           message: 'Error during access token exchange',
           type: 'error',
