@@ -10,6 +10,7 @@ type EnvVariables = {
 
 export async function POST(req: NextRequest) {
   const { userEmail } = await req.json()
+
   // Get environment variables with proper typing
   const {
     TWITTER_CLIENT_ID, // Twitter app's client ID for OAuth 2.0
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
     const { url, codeVerifier, state } = twitterClient.generateOAuth2AuthLink(
       TWITTER_CALLBACK_URL,
       {
-        scope: ['tweet.read', 'tweet.write', 'users.read', 'offline.access'], // Scopes for user permissions (adjust based on your needs)
+        scope: ['tweet.read', 'tweet.write', 'users.read', 'offline.access'], // Scopes for user permissions
       }
     )
 
