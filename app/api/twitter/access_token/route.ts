@@ -10,7 +10,8 @@ async function uploadTokensToS3(
   userEmail: string,
   client: TwitterApi,
   accessToken: string,
-  accessTokenSecret: string
+  refreshToken: string | undefined,
+  expiresIn: number
 ): Promise<void> {
   const params: AWS.S3.PutObjectRequest = {
     Bucket: 'zealore', // Your S3 bucket name
@@ -18,7 +19,8 @@ async function uploadTokensToS3(
     Body: JSON.stringify({
       USER: client,
       ACCESS_TOKEN: accessToken,
-      ACCESS_TOKEN_SECRET: accessTokenSecret,
+      REFRESH_TOKEN: refreshToken,
+      EXPIRES_IN: expiresIn,
     }),
     ContentType: 'application/json',
     ACL: 'private', // Set the ACL to 'private' to ensure the tokens are not publicly accessible
@@ -30,83 +32,85 @@ async function uploadTokensToS3(
 }
 
 export async function POST(req: NextRequest) {
-  // Extract tokens from query string
-  const searchParams = req.nextUrl.searchParams
-  const oauth_verifier = searchParams.get('oauth_verifier')
-  const oauthToken = searchParams.get('oauth_token')
+  const searchParms = req.nextUrl.searchParams
+  const code = searchParms.get('code')
+  const state = searchParms.get('state')
+  const cookieStore = req.cookies
+  const sessionState = cookieStore.get('state')
+  const codeVerifier = cookieStore.get('codeVerifier')
+  const userEmail = cookieStore.get('userEmail')
+  const clientId = process.env.TWITTER_CLIENT_ID
+  const clientSecret = process.env.TWITTER_CLIENT_SECRET
+  const redirectUri = process.env.TWITTER_CALLBACK_URL
 
-  // Get the userEmail, oauthToken and oauthTokenSecret from the session
-  const authCookie = req.cookies.get('oauthToken')
-
-  // Get env varaibles.
-  const consumerKey = process.env.TWITTER_CONSUMER_KEY
-  const consumerSecret = process.env.TWITTER_CONSUMER_SECRET
-  const callbackUrl = process.env.TWITTER_CALLBACK_URL
-
-  if (!oauthToken || !oauth_verifier) {
-    return NextResponse.json({
-      error: 'You denied the app or your session expired!',
-      status: 500,
-    })
+  if (!state || !code) {
+    return NextResponse.json(
+      { error: 'You denied app or your session expired' },
+      { status: 400 }
+    )
   }
 
-  if (!consumerKey || !consumerSecret || !callbackUrl) {
-    return NextResponse.json({
-      error: 'Twitter environment variables not set',
-      status: 500,
-    })
+  if (!clientId || !clientSecret || !redirectUri) {
+    return NextResponse.json(
+      { error: 'Twitter OAuth credentials missing' },
+      { status: 500 }
+    )
   }
 
-  if (!authCookie) {
-    return NextResponse.json({ error: 'OAuth tokens not found in session.' })
+  if (!sessionState || !codeVerifier || !userEmail) {
+    return NextResponse.json({ error: 'User session missing' }, { status: 400 })
   }
 
-  // Get the user details from session.
-  const { userEmail, oauthTokenSecret } = JSON.parse(authCookie.value)
-
-  if (!userEmail) {
-    return NextResponse.json({
-      error: 'PIN and userEmail are required',
-      status: 400,
-    })
+  if (state !== sessionState.value) {
+    return NextResponse.json(
+      { error: 'Stored tokens didnt match!' },
+      { status: 400 }
+    )
   }
 
-  // Create a new Twitter API client
+  // Initialize the Twitter API client using OAuth 2.0 credentials
   const twitterClient = new TwitterApi({
-    appKey: consumerKey,
-    appSecret: consumerSecret,
-    accessToken: oauthToken,
-    accessSecret: oauthTokenSecret,
+    clientId,
+    clientSecret,
   })
 
   try {
-    // Step 2: Exchange the oauth_token, oauth_token_secret, and oauth_verifier for the access token
+    // Step 3: Exchange the authorization code for an access token
     const {
-      client: user,
+      client: loggedClient,
       accessToken,
-      accessSecret,
-    } = await twitterClient.login(oauth_verifier)
+      refreshToken,
+      expiresIn,
+    } = await twitterClient.loginWithOAuth2({
+      code,
+      codeVerifier: codeVerifier.value,
+      redirectUri,
+    })
 
-    // Save the access token and secret to S3
-    await uploadTokensToS3(userEmail, user, accessToken, accessSecret)
+    // Store the access token in s3
+    uploadTokensToS3(
+      userEmail.value,
+      loggedClient,
+      accessToken,
+      refreshToken,
+      expiresIn
+    )
 
-    // Create the response object to set the cookie
-    const response = NextResponse.redirect('/')
+    // Create the response and set the access token in a secure, HttpOnly cookie
+    const response = NextResponse.json({ message: 'Authentication successful' })
 
-    // Set the 'x-code' in the cookie
-    response.cookies.set('x-code', accessToken, {
-      httpOnly: true, // Prevent access to the cookie via JavaScript
-      secure: process.env.NODE_ENV === 'production', // Secure flag in production
-      sameSite: 'lax', // Same-site policy
-      maxAge: 60 * 60 * 24, // Cookie expires in 1 day (or customize as needed)
+    response.cookies.set('access_token', accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
     })
 
     return response
   } catch (error) {
-    console.error('Error during OAuth exchange or S3 upload:', error)
-    return NextResponse.json({
-      error: 'Failed to exchange PIN for access token or upload tokens to S3',
-      status: 500,
-    })
+    console.error('Error during OAuth2 token exchange:', error)
+    return NextResponse.json(
+      { error: 'Error exchanging authorization code for access token' },
+      { status: 500 }
+    )
   }
 }
