@@ -27,7 +27,7 @@ async function uploadTokensToS3(
   console.log('Tokens successfully uploaded to S3')
 }
 
-export default async function POST(req: NextRequest) {
+export async function POST(req: NextRequest) {
   // Extract tokens from query string
   const searchParams = req.nextUrl.searchParams
   const oauth_verifier = searchParams.get('oauth_verifier')
