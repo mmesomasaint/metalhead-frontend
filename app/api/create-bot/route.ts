@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
   // Parse the incoming JSON request body
   const { email, accessToken, serverDomain, botName }: BotData =
     await req.json()
+
   const endpoint = process.env.RDS_ENDPOINT
   const username = process.env.RDS_USERNAME
   const password = process.env.RDS_PASSWORD
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Ensure mysql credentials are not undefined
-  if (!endpoint || !username || password || database) {
+  if (!endpoint || !username || !password || !database) {
     return NextResponse.json(
       { error: 'Your DB credentials are missing.' },
       { status: 500 }
@@ -48,16 +49,37 @@ export async function POST(req: NextRequest) {
   })
 
   try {
-    // SQL query to insert bot data into the table
-    const query = `
-      INSERT INTO bots (email, access_token, server_domain, bot_name)
-      VALUES (?,?, ?, ?)
+    // SQL query to check if a bot with the same email, accessToken, and serverDomain already exists
+    const checkQuery = `
+      SELECT COUNT(*) AS count
+      FROM bots
+      WHERE email = ? AND access_token = ? AND server_domain = ?
     `
 
-    // Execute the query
+    // Execute the check query
+    const [rows] = await pool
+      .promise()
+      .execute(checkQuery, [email, accessToken, serverDomain])
+    const botCount = (rows as any)[0].count
+
+    // If a bot already exists with the same details, return an error
+    if (botCount > 0) {
+      return NextResponse.json(
+        { error: 'Duplicate bot detected' },
+        { status: 400 }
+      )
+    }
+
+    // SQL query to insert bot data into the table
+    const insertQuery = `
+      INSERT INTO bots (email, access_token, server_domain, bot_name)
+      VALUES (?, ?, ?, ?)
+    `
+
+    // Execute the insert query
     const [results] = await pool
       .promise()
-      .execute(query, [email, accessToken, serverDomain, botName])
+      .execute(insertQuery, [email, accessToken, serverDomain, botName])
 
     // Respond with success
     return NextResponse.json(
