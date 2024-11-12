@@ -96,9 +96,7 @@ const BotForm: React.FC<{ user: { email: string; accessToken: string } }> = ({
   }
 
   return (
-    <div className='bg-white p-8 rounded-lg shadow-md w-full max-w-md'>
-      <h2 className='text-2xl font-semibold mb-6'>Create a Bot</h2>
-
+    <>
       <form onSubmit={handleSubmit}>
         {/* Display the generated bot name in a read-only input */}
         <div className='mb-4'>
@@ -151,7 +149,7 @@ const BotForm: React.FC<{ user: { email: string; accessToken: string } }> = ({
           onClose={() => setNotification(null)}
         />
       )}
-    </div>
+    </>
   )
 }
 

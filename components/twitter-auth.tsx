@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { FaRobot } from "react-icons/fa"
 import Notification from '@/components/notification'
 
 export default function TwitterAuthForm() {
@@ -39,8 +38,6 @@ export default function TwitterAuthForm() {
 
   return (
     <>
-      <div className='bg-white p-8 rounded-lg shadow-md w-full max-w-md'>
-        <FaRobot className='mb-4 text-7xl mx-auto text-blue-500/50' />
         <div className='mb-4'>
           <input
             type='email'
@@ -62,7 +59,6 @@ export default function TwitterAuthForm() {
         >
           Grant twitter access
         </button>
-      </div>
       {notification && (
         <Notification
           message={notification.message}
