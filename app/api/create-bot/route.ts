@@ -60,9 +60,9 @@ export async function POST(req: NextRequest) {
     const [rows] = await pool
       .promise()
       .execute(checkQuery, [email, accessToken, serverDomain])
-    const botCount = (rows as const)[0].count
+    const botCount = (rows as { count: number }[])[0].count
 
-    // If a bot already exists with the same details, return an error
+    // If a bot already exists with the same details
     if (botCount > 0) {
       return NextResponse.json(
         { error: 'Duplicate bot detected' },
