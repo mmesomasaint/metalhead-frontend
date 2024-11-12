@@ -102,8 +102,9 @@ export async function GET(req: NextRequest) {
     )
 
     // Create the response and set the access token in a secure, HttpOnly cookie
-    const homePage = new URL(redirectUri).origin
-    const response = NextResponse.redirect(homePage)
+    const origin = new URL(redirectUri).origin
+    const redirectPage = `${origin}/create-bot`
+    const response = NextResponse.redirect(redirectPage)
 
     // Set cookie options
     const cookieOptions = {
