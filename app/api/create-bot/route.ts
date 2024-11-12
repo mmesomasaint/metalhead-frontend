@@ -19,10 +19,10 @@ export async function POST(req: Request) {
 
   // Ensure mysql credentials are not undefined
   if (!endpoint || !username || password || database) {
-    return NextResponse.json({
-      error: 'Your DB credentials are missing.',
-      status: 500,
-    })
+    return NextResponse.json(
+      { error: 'Your DB credentials are missing.' },
+      { status: 500 }
+    )
   }
 
   // MySQL connection pool
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
 
     // Respond with success
     return NextResponse.json(
-      { message: 'Bot created successfully' },
+      { message: 'Bot created successfully', body: results },
       { status: 200 }
     )
   } catch (err) {
