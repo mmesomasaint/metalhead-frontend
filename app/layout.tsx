@@ -14,8 +14,8 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Metal Head 🤖",
-  description: "My Bots Control Panel",
+  title: "Metal Head",
+  description: "hush hush",
 };
 
 export default function RootLayout({
