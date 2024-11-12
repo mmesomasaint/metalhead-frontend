@@ -100,11 +100,16 @@ export async function GET(req: NextRequest) {
     const homePage = new URL(redirectUri).origin
     const response = NextResponse.redirect(homePage)
 
-    response.cookies.set('access_token', accessToken, {
+    // Set cookie options
+    const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-    })
+      sameSite: 'lax' as const,
+    }
+
+    // Store sessions in cookie
+    response.cookies.set('access_token', accessToken, cookieOptions)
+    response.cookies.set('email', userEmail.value, cookieOptions)
 
     return response
   } catch (error) {

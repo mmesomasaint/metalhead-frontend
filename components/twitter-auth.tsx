@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
+import { FaRobot } from "react-icons/fa"
 import Notification from '@/components/notification'
 
-export default function AuthForm() {
+export default function TwitterAuthForm() {
   const [userEmail, setUserEmail] = useState('')
   const [isRedirecting, setIsRedirecting] = useState(false)
   const [notification, setNotification] = useState<{
@@ -39,6 +40,7 @@ export default function AuthForm() {
   return (
     <>
       <div className='bg-white p-8 rounded-lg shadow-md w-full max-w-md'>
+        <FaRobot className='mb-4 text-7xl mx-auto text-blue-500/50' />
         <div className='mb-4'>
           <input
             type='email'
@@ -58,7 +60,7 @@ export default function AuthForm() {
           }`}
           disabled={isRedirecting}
         >
-          Authenticate with Twitter
+          Grant twitter access
         </button>
       </div>
       {notification && (
