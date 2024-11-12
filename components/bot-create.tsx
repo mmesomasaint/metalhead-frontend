@@ -37,6 +37,7 @@ const BotForm: React.FC<{ user: { email: string; accessToken: string } }> = ({
   // Valid server domain.
   const correctServerDomain = () => {
     return (
+      serverDomain &&
       serverDomain.length > 0 &&
       serverDomain.startsWith('https://zealy.io/cw/')
     )
@@ -51,15 +52,6 @@ const BotForm: React.FC<{ user: { email: string; accessToken: string } }> = ({
   const handleSubmit = async (e: FormEvent): Promise<void> => {
     e.preventDefault()
     setIsLoading(true)
-
-    // Validate server domain
-    if (!serverDomain) {
-      setNotification({
-        message: 'Please enter a valid server domain',
-        type: 'error',
-      })
-      return
-    }
 
     const botData: BotFormData = {
       email,
