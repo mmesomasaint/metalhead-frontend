@@ -12,9 +12,14 @@ async function uploadTokensToS3(
   accessToken: string,
   refreshToken: string | undefined,
   expiresIn: number
-): Promise<void> {
+): Promise<void | NextResponse<unknown>> {
+  const bucketName = process.env.AWS_BUCKET_NAME
+  if (!bucketName) {
+    return NextResponse.json({error: "Bucket name missing.", status: 500})
+  }
+
   const params: AWS.S3.PutObjectRequest = {
-    Bucket: 'zealore', // Your S3 bucket name
+    Bucket: bucketName, // Your S3 bucket name
     Key: `${userEmail}/twitter/tokens.json`, // The S3 object key
     Body: JSON.stringify({
       USER: client,
@@ -88,7 +93,7 @@ export async function GET(req: NextRequest) {
     })
 
     // Store the access token in s3
-    uploadTokensToS3(
+    await uploadTokensToS3(
       userEmail.value,
       loggedClient,
       accessToken,

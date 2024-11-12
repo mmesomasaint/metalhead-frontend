@@ -11,6 +11,7 @@
   "dependencies": {
     "aws-sdk": "^2.1692.0",
     "axios": "^1.7.7",
+    "mysql2": "^3.11.4",
     "next": "15.0.2",
     "next-iron-session": "^4.2.0",
     "oauth": "^0.10.0",
