@@ -1,6 +1,5 @@
 // app/api/create-bot/route.ts
 import { NextResponse, NextRequest } from 'next/server'
-import { headers } from 'next/headers'
 import mysql from 'mysql2'
 
 // Define a type for the bot creation data
@@ -86,6 +85,16 @@ export async function POST(req: NextRequest) {
     // Redirect user to the home page
     const homePage = headers.get('origin')!
     const response = NextResponse.redirect(homePage)
+
+    // Set cookie options
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax' as const,
+    }
+
+    // Store db results in cookie
+    response.cookies.set('details', JSON.stringify(results), cookieOptions)
 
 
     // Respond with a redirect to home page
