@@ -37,8 +37,6 @@ async function uploadTokensToS3(
         REFRESH_TOKEN: refreshToken,
         EXPIRES_IN: expiresIn,
       }),
-      ContentType: 'application/json',
-      ACL: 'private', // Set the ACL to 'private' to ensure the tokens are not publicly accessible
     }
 
     // Upload the tokens to the specified S3 bucket
