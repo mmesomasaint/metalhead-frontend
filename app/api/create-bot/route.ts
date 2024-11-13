@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server'
 import mysql, { Pool, RowDataPacket } from 'mysql2'
 
-// Define a type for the bot creation data
+// Define types for bot creation data
 interface BotData {
   email: string
   accessToken: string
@@ -18,17 +18,96 @@ interface InsertResult extends RowDataPacket {
   insertId: number
 }
 
+// Database connection pool configuration
+function createPool(): Pool {
+  const { RDS_ENDPOINT, RDS_USERNAME, RDS_PASSWORD, RDS_DATABASE } = process.env
+  if (!RDS_ENDPOINT || !RDS_USERNAME || !RDS_PASSWORD || !RDS_DATABASE) {
+    throw new Error('Your DB credentials are missing.')
+  }
+
+  return mysql.createPool({
+    host: RDS_ENDPOINT,
+    user: RDS_USERNAME,
+    password: RDS_PASSWORD,
+    database: RDS_DATABASE,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
+  })
+}
+
+// Create the table (run this only once during app setup or migration)
+async function createBotTable(pool: Pool) {
+  const createTableQuery = `
+    CREATE TABLE IF NOT EXISTS bots (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      email VARCHAR(255) NOT NULL,
+      access_token VARCHAR(255) NOT NULL,
+      server_domain VARCHAR(255) NOT NULL,
+      bot_name VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_bot (bot_name, server_domain)
+    );
+  `
+
+  const connection = await pool.promise().getConnection()
+  try {
+    await connection.query(createTableQuery)
+    console.log('Table "bots" ensured to exist.')
+  } catch (err) {
+    console.error('Error creating table:', err)
+    throw new Error('Error ensuring the table exists.')
+  } finally {
+    connection.release()
+  }
+}
+
+// Helper function to check if the bot already exists
+async function botExists(
+  pool: Pool,
+  email: string,
+  accessToken: string,
+  serverDomain: string
+): Promise<boolean> {
+  const checkQuery = `
+    SELECT COUNT(*) AS count
+    FROM bots
+    WHERE email = ? AND access_token = ? AND server_domain = ?
+  `
+  const [rows] = await pool
+    .promise()
+    .execute<BotCheckResult[]>(checkQuery, [email, accessToken, serverDomain])
+  return rows[0].count > 0
+}
+
+// Helper function to insert a new bot into the database
+async function insertBot(
+  pool: Pool,
+  email: string,
+  accessToken: string,
+  serverDomain: string,
+  botName: string
+): Promise<InsertResult> {
+  const insertQuery = `
+    INSERT INTO bots (email, access_token, server_domain, bot_name)
+    VALUES (?, ?, ?, ?)
+  `
+  const [result] = await pool
+    .promise()
+    .execute<InsertResult[]>(insertQuery, [
+      email,
+      accessToken,
+      serverDomain,
+      botName,
+    ])
+  return result[0]
+}
+
 // POST API route to create the bot in the database
 export async function POST(req: NextRequest) {
-  // Parse the incoming JSON request body
-  const headers = req.headers
   const { email, accessToken, serverDomain, botName }: BotData =
     await req.json()
-
-  const endpoint = process.env.RDS_ENDPOINT
-  const username = process.env.RDS_USERNAME
-  const password = process.env.RDS_PASSWORD
-  const database = process.env.RDS_DATABASE
 
   // Ensure request came with payload
   if (!email || !accessToken || !serverDomain || !botName) {
@@ -38,65 +117,31 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Ensure mysql credentials are not undefined
-  if (!endpoint || !username || !password || !database) {
-    return NextResponse.json(
-      { error: 'Your DB credentials are missing.' },
-      { status: 500 }
-    )
-  }
-
-  // MySQL connection pool
-  const pool: Pool = mysql.createPool({
-    host: endpoint,
-    user: username,
-    password: password,
-    database: database,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
-  })
-
   try {
-    // SQL query to check if a bot with the same email, accessToken, and serverDomain already exists
-    const checkQuery = `
-      SELECT COUNT(*) AS count
-      FROM bots
-      WHERE email = ? AND access_token = ? AND server_domain = ?
-    `
+    const pool = createPool()
 
-    // Execute the check query and type the result
-    const [rows] = await pool
-      .promise()
-      .execute<BotCheckResult[]>(checkQuery, [email, accessToken, serverDomain])
-    const botCount = rows[0].count
+    // Ensure the table exists during app initialization (one-time setup)
+    await createBotTable(pool)
 
-    // If a bot already exists with the same details
-    if (botCount > 0) {
+    // Check if bot already exists
+    if (await botExists(pool, email, accessToken, serverDomain)) {
       return NextResponse.json(
         { error: 'Duplicate bot detected' },
         { status: 400 }
       )
     }
 
-    // SQL query to insert bot data into the table
-    const insertQuery = `
-      INSERT INTO bots (email, access_token, server_domain, bot_name)
-      VALUES (?, ?, ?, ?)
-    `
-
-    // Execute the insert query and type the result
-    const [insertResults] = await pool
-      .promise()
-      .execute<InsertResult[]>(insertQuery, [
-        email,
-        accessToken,
-        serverDomain,
-        botName,
-      ])
+    // Insert new bot into the database
+    const insertResults = await insertBot(
+      pool,
+      email,
+      accessToken,
+      serverDomain,
+      botName
+    )
 
     // Redirect user to the home page
-    const homePage = headers.get('origin')!
+    const homePage = req.headers.get('origin')!
     const response = NextResponse.redirect(homePage)
 
     // Set cookie options
@@ -113,11 +158,9 @@ export async function POST(req: NextRequest) {
       cookieOptions
     )
 
-    // Respond with a redirect to home page
     return response
   } catch (err) {
-    console.error('Error inserting data:', err)
-    // Respond with an error
+    console.error('Error processing request:', err)
     return NextResponse.json({ message: 'Error creating bot' }, { status: 500 })
   }
 }
