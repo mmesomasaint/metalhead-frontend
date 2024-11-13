@@ -93,15 +93,23 @@ async function insertBot(
     INSERT INTO bots (email, access_token, server_domain, bot_name)
     VALUES (?, ?, ?, ?)
   `
-  const [result] = await pool
+  const result = await pool
     .promise()
     .execute<InsertResult[]>(insertQuery, [
       email,
       accessToken,
       serverDomain,
       botName,
-    ])
-  return result[0]
+    ]).catch(e => {
+      console.log("Execution error occurred", e)
+      return null
+    })
+
+  if (!result) {
+    throw new Error('Failed to insert bot')
+  }
+
+  return result[0][0]
 }
 
 // POST API route to create the bot in the database
