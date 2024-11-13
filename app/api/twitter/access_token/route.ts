@@ -15,7 +15,7 @@ async function uploadTokensToS3(
 ): Promise<void> {
   const bucketName = process.env.AWS_BUCKET_NAME
   if (!bucketName) {
-    throw new Error("Bucket name missing.")
+    throw new Error('Bucket name missing.')
   }
 
   const params: AWS.S3.PutObjectRequest = {
@@ -81,6 +81,7 @@ export async function GET(req: NextRequest) {
 
   try {
     // Step 3: Exchange the authorization code for an access token
+    console.log("here1")
     const {
       client: loggedClient,
       accessToken,
@@ -91,7 +92,7 @@ export async function GET(req: NextRequest) {
       codeVerifier: codeVerifier.value,
       redirectUri,
     })
-
+    console.log("here2")
     try {
       // Store the access token in s3
       await uploadTokensToS3(
@@ -101,11 +102,14 @@ export async function GET(req: NextRequest) {
         refreshToken,
         expiresIn
       )
-    } catch(error) {
+    } catch (error) {
       console.log(error)
-      return NextResponse.json({error: "Failed to save tokens to s3"}, {status: 500})
+      return NextResponse.json(
+        { error: 'Failed to save tokens to s3' },
+        { status: 500 }
+      )
     }
-
+    console.log("here3")
     // Create the response and set the access token in a secure, HttpOnly cookie
     const origin = new URL(redirectUri).origin
     const redirectPage = `${origin}/create-bot`
