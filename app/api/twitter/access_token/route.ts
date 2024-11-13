@@ -2,6 +2,13 @@ import { TwitterApi } from 'twitter-api-v2'
 import AWS from 'aws-sdk'
 import { NextRequest, NextResponse } from 'next/server'
 
+// Set the AWS region and credentials
+AWS.config.update({
+  region: process.env.AWS_REGION,
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+});
+
 // Initialize the AWS S3 client
 const s3 = new AWS.S3()
 
@@ -127,7 +134,7 @@ export async function GET(req: NextRequest) {
       sameSite: 'lax' as const,
     }
 
-    // Store sessions in cookie
+    // Store sessions
     response.cookies.set('access_token', accessToken, cookieOptions)
     response.cookies.set('email', userEmail.value, cookieOptions)
 
