@@ -1,6 +1,5 @@
-// app/api/create-bot/route.ts
 import { NextResponse, NextRequest } from 'next/server'
-import mysql from 'mysql2'
+import mysql, { Pool, RowDataPacket } from 'mysql2'
 
 // Define a type for the bot creation data
 interface BotData {
@@ -8,6 +7,15 @@ interface BotData {
   accessToken: string
   serverDomain: string
   botName: string
+}
+
+// Define types for MySQL query results
+interface BotCheckResult extends RowDataPacket {
+  count: number
+}
+
+interface InsertResult extends RowDataPacket {
+  insertId: number
 }
 
 // POST API route to create the bot in the database
@@ -39,7 +47,7 @@ export async function POST(req: NextRequest) {
   }
 
   // MySQL connection pool
-  const pool = mysql.createPool({
+  const pool: Pool = mysql.createPool({
     host: endpoint,
     user: username,
     password: password,
@@ -57,11 +65,11 @@ export async function POST(req: NextRequest) {
       WHERE email = ? AND access_token = ? AND server_domain = ?
     `
 
-    // Execute the check query
+    // Execute the check query and type the result
     const [rows] = await pool
       .promise()
-      .execute(checkQuery, [email, accessToken, serverDomain])
-    const botCount = (rows as { count: number }[])[0].count
+      .execute<BotCheckResult[]>(checkQuery, [email, accessToken, serverDomain])
+    const botCount = rows[0].count
 
     // If a bot already exists with the same details
     if (botCount > 0) {
@@ -77,10 +85,15 @@ export async function POST(req: NextRequest) {
       VALUES (?, ?, ?, ?)
     `
 
-    // Execute the insert query
-    const [results] = await pool
+    // Execute the insert query and type the result
+    const [insertResults] = await pool
       .promise()
-      .execute(insertQuery, [email, accessToken, serverDomain, botName])
+      .execute<InsertResult[]>(insertQuery, [
+        email,
+        accessToken,
+        serverDomain,
+        botName,
+      ])
 
     // Redirect user to the home page
     const homePage = headers.get('origin')!
@@ -94,8 +107,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Store db results in cookie
-    response.cookies.set('details', JSON.stringify(results), cookieOptions)
-
+    response.cookies.set(
+      'details',
+      JSON.stringify(insertResults),
+      cookieOptions
+    )
 
     // Respond with a redirect to home page
     return response

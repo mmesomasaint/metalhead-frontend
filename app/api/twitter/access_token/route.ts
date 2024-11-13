@@ -103,7 +103,7 @@ export async function GET(req: NextRequest) {
         expiresIn
       )
     } catch (error) {
-      console.log(error)
+      console.log("S3 upload error:", error)
       return NextResponse.json(
         { error: 'Failed to save tokens to s3' },
         { status: 500 }
