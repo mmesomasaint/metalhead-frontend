@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server'
-import mysql, { Pool, RowDataPacket } from 'mysql2'
+import * as admin from 'firebase-admin'
 
 // Define types for bot creation data
 interface BotData {
@@ -9,110 +9,55 @@ interface BotData {
   botName: string
 }
 
-// Define types for MySQL query results
-interface BotCheckResult extends RowDataPacket {
-  count: number
-}
-
-interface InsertResult extends RowDataPacket {
-  insertId: number
-}
-
-// Database connection pool configuration
-function createPool(): Pool {
-  const { RDS_ENDPOINT, RDS_USERNAME, RDS_PASSWORD, RDS_DATABASE } = process.env
-  if (!RDS_ENDPOINT || !RDS_USERNAME || !RDS_PASSWORD || !RDS_DATABASE) {
-    throw new Error('Your DB credentials are missing.')
-  }
-
-  return mysql.createPool({
-    host: RDS_ENDPOINT,
-    user: RDS_USERNAME,
-    password: RDS_PASSWORD,
-    database: RDS_DATABASE,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
+// Initialize Firebase Admin SDK if not already initialized
+if (!admin.apps.length) {
+  const serviceAccount = JSON.parse(
+    process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}'
+  )
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
   })
 }
 
-// Create the table (run this only once during app setup or migration)
-async function createBotTable(pool: Pool) {
-  const createTableQuery = `
-    CREATE TABLE IF NOT EXISTS bots (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      email VARCHAR(255) NOT NULL,
-      access_token VARCHAR(255) NOT NULL,
-      server_domain VARCHAR(255) NOT NULL,
-      bot_name VARCHAR(255) NOT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      UNIQUE KEY unique_bot (bot_name, server_domain)
-    );
-  `
+const db = admin.firestore()
 
-  const connection = await pool.promise().getConnection()
-  try {
-    await connection.query(createTableQuery)
-    console.log('Table "bots" ensured to exist.')
-  } catch (err) {
-    console.error('Error creating table:', err)
-    throw new Error('Error ensuring the table exists.')
-  } finally {
-    connection.release()
-  }
-}
-
-// Helper function to check if the bot already exists
+// Helper function to check if a bot already exists
 async function botExists(
-  pool: Pool,
   email: string,
   accessToken: string,
   serverDomain: string
 ): Promise<boolean> {
-  const checkQuery = `
-    SELECT COUNT(*) AS count
-    FROM bots
-    WHERE email = ? AND access_token = ? AND server_domain = ?
-  `
-  const [rows] = await pool
-    .promise()
-    .execute<BotCheckResult[]>(checkQuery, [email, accessToken, serverDomain])
-  return rows[0].count > 0
+  const botsRef = db.collection('bots')
+  const snapshot = await botsRef
+    .where('email', '==', email)
+    .where('access_token', '==', accessToken)
+    .where('server_domain', '==', serverDomain)
+    .get()
+
+  return !snapshot.empty
 }
 
-// Helper function to insert a new bot into the database
+// Helper function to insert a new bot into the Firestore
 async function insertBot(
-  pool: Pool,
   email: string,
   accessToken: string,
   serverDomain: string,
   botName: string
-): Promise<InsertResult> {
-  const insertQuery = `
-    INSERT INTO bots (email, access_token, server_domain, bot_name)
-    VALUES (?, ?, ?, ?)
-  `
-  const result = await pool
-    .promise()
-    .execute<InsertResult[]>(insertQuery, [
-      email,
-      accessToken,
-      serverDomain,
-      botName,
-    ]).catch(e => {
-      console.log("Execution error occurred", e)
-      return null
-    })
+): Promise<admin.firestore.DocumentReference> {
+  const botsRef = db.collection('bots')
+  const newBotRef = await botsRef.add({
+    email,
+    access_token: accessToken,
+    server_domain: serverDomain,
+    bot_name: botName,
+    created_at: admin.firestore.FieldValue.serverTimestamp(),
+    updated_at: admin.firestore.FieldValue.serverTimestamp(),
+  })
 
-  if (!result) {
-    throw new Error('Failed to insert bot')
-  }
-
-  return result[0][0]
+  return newBotRef
 }
 
-// POST API route to create the bot in the database
+// POST API route to create the bot in Firestore
 export async function POST(req: NextRequest) {
   const { email, accessToken, serverDomain, botName }: BotData =
     await req.json()
@@ -126,27 +71,16 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const pool = createPool()
-
-    // Ensure the table exists during app initialization (one-time setup)
-    await createBotTable(pool)
-
-    // Check if bot already exists
-    if (await botExists(pool, email, accessToken, serverDomain)) {
+    // Check if bot already exists in Firestore
+    if (await botExists(email, accessToken, serverDomain)) {
       return NextResponse.json(
         { error: 'Duplicate bot detected' },
         { status: 400 }
       )
     }
 
-    // Insert new bot into the database
-    const insertResults = await insertBot(
-      pool,
-      email,
-      accessToken,
-      serverDomain,
-      botName
-    )
+    // Insert new bot into Firestore
+    const newBotRef = await insertBot(email, accessToken, serverDomain, botName)
 
     // Redirect user to the home page
     const homePage = req.headers.get('origin')!
@@ -159,10 +93,10 @@ export async function POST(req: NextRequest) {
       sameSite: 'lax' as const,
     }
 
-    // Store db results in cookie
+    // Store the document reference in the cookie (you could store more details here)
     response.cookies.set(
       'details',
-      JSON.stringify(insertResults),
+      JSON.stringify({ id: newBotRef.id, email, botName }),
       cookieOptions
     )
 
