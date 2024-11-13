@@ -11,12 +11,22 @@ interface BotData {
 
 // Initialize Firebase Admin SDK if not already initialized
 if (!admin.apps.length) {
-  const serviceAccount = JSON.parse(
-    process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}'
-  )
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  })
+  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
+  if (!serviceAccount) {
+    throw new Error(
+      'FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set.'
+    )
+  }
+
+  try {
+    const parsedServiceAccount = JSON.parse(serviceAccount)
+    admin.initializeApp({
+      credential: admin.credential.cert(parsedServiceAccount),
+    })
+  } catch (error) {
+    console.error('Error initializing Firebase Admin SDK:', error)
+    throw new Error('Failed to initialize Firebase Admin SDK.')
+  }
 }
 
 const db = admin.firestore()
@@ -37,7 +47,7 @@ async function botExists(
   return !snapshot.empty
 }
 
-// Helper function to insert a new bot into the Firestore
+// Helper function to insert a new bot into Firestore
 async function insertBot(
   email: string,
   accessToken: string,
