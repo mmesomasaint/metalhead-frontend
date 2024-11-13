@@ -14,26 +14,40 @@ async function uploadTokensToS3(
   expiresIn: number
 ): Promise<void> {
   const bucketName = process.env.AWS_BUCKET_NAME
+
   if (!bucketName) {
-    throw new Error('Bucket name missing.')
+    throw new Error('S3 bucket name missing.')
   }
 
-  const params: AWS.S3.PutObjectRequest = {
-    Bucket: bucketName, // Your S3 bucket name
-    Key: `${userEmail}/twitter/tokens.json`, // The S3 object key
-    Body: JSON.stringify({
-      USER: client,
-      ACCESS_TOKEN: accessToken,
-      REFRESH_TOKEN: refreshToken,
-      EXPIRES_IN: expiresIn,
-    }),
-    ContentType: 'application/json',
-    ACL: 'private', // Set the ACL to 'private' to ensure the tokens are not publicly accessible
+  if (!refreshToken || !client || !expiresIn || !accessToken) {
+    throw new Error('S3 upload params are incomplete')
   }
 
-  // Upload the tokens to the specified S3 bucket
-  await s3.putObject(params).promise()
-  console.log('Tokens successfully uploaded to S3')
+  if (!userEmail) {
+    throw new Error('S3 user email is important')
+  }
+
+  try {
+    const params: AWS.S3.PutObjectRequest = {
+      Bucket: bucketName, // Your S3 bucket name
+      Key: `${userEmail}/twitter/tokens.json`, // The S3 object key
+      Body: JSON.stringify({
+        USER: client,
+        ACCESS_TOKEN: accessToken,
+        REFRESH_TOKEN: refreshToken,
+        EXPIRES_IN: expiresIn,
+      }),
+      ContentType: 'application/json',
+      ACL: 'private', // Set the ACL to 'private' to ensure the tokens are not publicly accessible
+    }
+
+    // Upload the tokens to the specified S3 bucket
+    await s3.putObject(params).promise()
+    console.log('Tokens successfully uploaded to S3')
+  } catch (err) {
+    console.log('Setup error: ', err)
+    throw new Error('Error during S3 setup')
+  }
 }
 
 export async function GET(req: NextRequest) {
@@ -81,7 +95,6 @@ export async function GET(req: NextRequest) {
 
   try {
     // Step 3: Exchange the authorization code for an access token
-    console.log("here1")
     const {
       client: loggedClient,
       accessToken,
@@ -92,24 +105,16 @@ export async function GET(req: NextRequest) {
       codeVerifier: codeVerifier.value,
       redirectUri,
     })
-    console.log("here2")
-    try {
-      // Store the access token in s3
-      await uploadTokensToS3(
-        userEmail.value,
-        loggedClient,
-        accessToken,
-        refreshToken,
-        expiresIn
-      )
-    } catch (error) {
-      console.log("S3 upload error:", error)
-      return NextResponse.json(
-        { error: 'Failed to save tokens to s3' },
-        { status: 500 }
-      )
-    }
-    console.log("here3")
+
+    // Store the access token in s3
+    await uploadTokensToS3(
+      userEmail.value,
+      loggedClient,
+      accessToken,
+      refreshToken,
+      expiresIn
+    )
+
     // Create the response and set the access token in a secure, HttpOnly cookie
     const origin = new URL(redirectUri).origin
     const redirectPage = `${origin}/create-bot`
