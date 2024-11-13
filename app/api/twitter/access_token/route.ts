@@ -92,14 +92,19 @@ export async function GET(req: NextRequest) {
       redirectUri,
     })
 
-    // Store the access token in s3
-    await uploadTokensToS3(
-      userEmail.value,
-      loggedClient,
-      accessToken,
-      refreshToken,
-      expiresIn
-    )
+    try {
+      // Store the access token in s3
+      await uploadTokensToS3(
+        userEmail.value,
+        loggedClient,
+        accessToken,
+        refreshToken,
+        expiresIn
+      )
+    } catch(error) {
+      console.log(error)
+      return NextResponse.json({error: "Failed to save tokens to s3"}, {status: 500})
+    }
 
     // Create the response and set the access token in a secure, HttpOnly cookie
     const origin = new URL(redirectUri).origin
