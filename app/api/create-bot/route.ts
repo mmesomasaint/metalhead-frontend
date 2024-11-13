@@ -1,5 +1,6 @@
 // app/api/create-bot/route.ts
 import { NextResponse, NextRequest } from 'next/server'
+import { headers } from 'next/headers'
 import mysql from 'mysql2'
 
 // Define a type for the bot creation data
@@ -13,6 +14,7 @@ interface BotData {
 // POST API route to create the bot in the database
 export async function POST(req: NextRequest) {
   // Parse the incoming JSON request body
+  const headers = req.headers
   const { email, accessToken, serverDomain, botName }: BotData =
     await req.json()
 
@@ -81,11 +83,13 @@ export async function POST(req: NextRequest) {
       .promise()
       .execute(insertQuery, [email, accessToken, serverDomain, botName])
 
-    // Respond with success
-    return NextResponse.json(
-      { message: 'Bot created successfully', body: results },
-      { status: 200 }
-    )
+    // Redirect user to the home page
+    const homePage = headers.get('origin')!
+    const response = NextResponse.redirect(homePage)
+
+
+    // Respond with a redirect to home page
+    return response
   } catch (err) {
     console.error('Error inserting data:', err)
     // Respond with an error

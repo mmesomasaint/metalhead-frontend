@@ -12,10 +12,10 @@ async function uploadTokensToS3(
   accessToken: string,
   refreshToken: string | undefined,
   expiresIn: number
-): Promise<void | NextResponse<unknown>> {
+): Promise<void> {
   const bucketName = process.env.AWS_BUCKET_NAME
   if (!bucketName) {
-    return NextResponse.json({error: "Bucket name missing.", status: 500})
+    throw new Error("Bucket name missing.")
   }
 
   const params: AWS.S3.PutObjectRequest = {
