@@ -2,7 +2,7 @@
 
 import React, { useState, ChangeEvent, FormEvent } from 'react'
 import Notification from './notification'
-import axios, { AxiosError } from 'axios'
+import axios from 'axios'
 
 // Define a type for the form data
 interface BotFormData {
