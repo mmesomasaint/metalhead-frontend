@@ -2,7 +2,7 @@
 
 import React, { useState, ChangeEvent, FormEvent } from 'react'
 import Notification from './notification'
-import axios from 'axios'
+import axios, { AxiosError } from 'axios'
 
 // Define a type for the form data
 interface BotFormData {
@@ -77,13 +77,37 @@ const BotForm: React.FC<{ user: { email: string; accessToken: string } }> = ({
         })
       }
       setIsLoading(false)
-    } catch (error) {
-      console.error(error)
+    } catch (error: unknown) {
       setIsLoading(false)
-      setNotification({
-        message: 'An error occurred while creating the bot.',
-        type: 'error',
-      })
+      console.error(error) // Logging
+
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          // The response object is available when the server sends a response
+          setNotification({
+            message: error.response.data.error,
+            type: 'error',
+          })
+        } else if (error.request) {
+          // No response was received (network error or no server response)
+          setNotification({
+            message: 'No reponse from server. Try again.',
+            type: 'error',
+          })
+        } else {
+          // Error setting up the request
+          setNotification({
+            message: 'Error setting up request',
+            type: 'error',
+          })
+        }
+      } else {
+        // Non-Axios error (could be a coding error or a different kind of exception)
+        setNotification({
+          message: 'An unexpected error occurred:',
+          type: 'error',
+        })
+      }
     }
   }
 

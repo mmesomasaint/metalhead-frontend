@@ -76,21 +76,21 @@ export async function POST(req: NextRequest) {
   // Ensure request came with payload
   if (!email || !accessToken || !serverDomain || !botName) {
     return NextResponse.json(
-      { error: 'Request made with incomplete payload' },
+      { error: 'Twitter authentication required' },
       { status: 403 }
     )
   }
 
   // Ensure the app origin is set
   if (!appOrigin) {
-    return NextResponse.json({ error: 'App origin not set' }, { status: 500 })
+    return NextResponse.json({ error: 'Error loading application' }, { status: 500 })
   }
 
   try {
     // Check if bot already exists in Firestore
     if (await botExists(email, accessToken, serverDomain)) {
       return NextResponse.json(
-        { error: 'Duplicate bot detected' },
+        { error: 'Bot already exists' },
         { status: 400 }
       )
     }
