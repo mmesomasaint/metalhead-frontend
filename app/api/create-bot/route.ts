@@ -69,6 +69,7 @@ async function insertBot(
 
 // POST API route to create the bot in Firestore
 export async function POST(req: NextRequest) {
+  const appOrigin = process.env.APP_ORIGIN
   const { email, accessToken, serverDomain, botName }: BotData =
     await req.json()
 
@@ -78,6 +79,11 @@ export async function POST(req: NextRequest) {
       { error: 'Request made with incomplete payload' },
       { status: 403 }
     )
+  }
+
+  // Ensure the app origin is set
+  if (!appOrigin) {
+    return NextResponse.json({ error: 'App origin not set' }, { status: 500 })
   }
 
   try {
@@ -93,8 +99,7 @@ export async function POST(req: NextRequest) {
     const newBotRef = await insertBot(email, accessToken, serverDomain, botName)
 
     // Redirect user to the home page
-    const homePage = req.headers.get('origin')!
-    const response = NextResponse.redirect(homePage)
+    const response = NextResponse.redirect(appOrigin)
 
     // Set cookie options
     const cookieOptions = {
